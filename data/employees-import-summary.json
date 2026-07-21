@@ -1,0 +1,12 @@
+{
+    "workbook":  "employees.xlsx",
+    "sheet":  "27 ",
+    "header_row":  1,
+    "source_rows":  650,
+    "imported":  646,
+    "duplicates":  0,
+    "rejected":  4,
+    "skills":  553,
+    "sha256":  "b152b6200f0bf5cf1e20e6ea8f5d1b5c75e9af30e10bd697e4d33ab6dcfa469c",
+    "generated_at":  "2026-07-20T04:09:59.9742004Z"
+}

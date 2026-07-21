@@ -1,0 +1,16 @@
+create index plants_created_by_idx on public.plants (created_by);
+create index plants_updated_by_idx on public.plants (updated_by);
+create index profiles_created_by_idx on public.profiles (created_by);
+create index profiles_updated_by_idx on public.profiles (updated_by);
+create index plant_members_created_by_idx on public.plant_members (created_by);
+create index plant_members_updated_by_idx on public.plant_members (updated_by);
+create index source_file_versions_created_by_idx on public.source_file_versions (created_by);
+create index source_file_versions_updated_by_idx on public.source_file_versions (updated_by);
+create index employees_created_by_idx on public.employees (created_by);
+create index employees_updated_by_idx on public.employees (updated_by);
+create index employee_skills_employee_plant_idx on public.employee_skills (employee_id, plant_id);
+create index employee_skills_created_by_idx on public.employee_skills (created_by);
+create index employee_skills_updated_by_idx on public.employee_skills (updated_by);
+create index audit_events_actor_id_idx on public.audit_events (actor_id);
+create index audit_events_created_by_idx on public.audit_events (created_by);
+create index audit_events_updated_by_idx on public.audit_events (updated_by);

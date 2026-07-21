@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#173b57">
+  <meta name="description" content="Formatos digitales NPI con funcionamiento sin conexión">
+  <link rel="manifest" href="manifest.webmanifest">
+  <title>NPI DIGITAL Forms Hub</title>
+  <link rel="stylesheet" href="css/styles.css?v=17">
+  <style>.settings-card select{width:100%;border:1px solid var(--line);border-radius:7px;padding:10px 11px;background:#fff}.connection-box{display:grid;gap:14px;padding:18px;border:1px solid var(--line);border-radius:9px;background:#f8fafb}.connection-box>div:first-child{display:grid;gap:4px}.connection-box small{color:var(--muted);font-size:10px}.connection-status{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:11px}.connection-status .status-dot.neutral{background:#9aa5ad;box-shadow:0 0 0 4px rgba(154,165,173,.12)}.connection-status .status-dot.ok{background:var(--green);box-shadow:0 0 0 4px rgba(21,150,106,.12)}.connection-status .status-dot.error{background:var(--red);box-shadow:0 0 0 4px rgba(196,68,68,.12)}.plan-file-info{display:flex;gap:45px;margin-top:20px;padding:14px 16px;background:#f8fafb;border:1px solid var(--line);border-radius:8px}.plan-file-info div{display:grid;gap:5px}.plan-file-info small{font-size:9px;color:var(--muted);letter-spacing:1px}.plan-file-info strong{font-size:11px}.plan-controls{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end}.plan-controls select{border:1px solid var(--line);border-radius:7px;padding:9px 10px;background:#fff;color:#53616c;font:11px Inter;max-width:170px}.selected-record{margin-top:20px;padding:20px 23px;border-left:4px solid var(--blue)}.selected-heading{display:flex;align-items:center;justify-content:space-between;gap:15px;margin-bottom:15px}.selected-heading h3{margin:0;font-size:14px}.selected-heading span{font-size:10px;color:var(--green);background:#e9f7f1;padding:6px 9px;border-radius:12px}.selected-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:15px}.selected-grid div{display:grid;gap:5px}.selected-grid small{font-size:9px;color:var(--muted);text-transform:uppercase}.selected-grid strong{font-size:11px}.schedule-picker{margin-top:16px;display:flex;align-items:center;gap:12px}.schedule-picker label{font-size:10px;font-weight:600;color:var(--muted)}.schedule-picker select{border:1px solid var(--line);border-radius:7px;padding:9px 11px;background:#fff;font:11px Inter}.schedule-list{display:grid;gap:3px}.schedule-chip{display:inline-block;background:#edf6fc;color:#24648e;padding:4px 7px;border-radius:5px;font-size:9px;margin:2px}.select-record{padding:7px 11px}.plan-toolbar{align-items:flex-start}@media(max-width:900px){.selected-grid{grid-template-columns:repeat(2,1fr)}.plan-controls{justify-content:flex-start}.plan-controls .search{width:100%}}@media(max-width:600px){.plan-file-info{flex-direction:column;gap:13px}.selected-grid{grid-template-columns:1fr}}</style>
+  <script defer src="js/vendor/xlsx.full.min.js"></script>
+  <script defer src="js/vendor/exceljs.min.js"></script>
+  <script defer src="js/vendor/supabase-js-2.110.7.umd.js"></script>
+  <script src="env.js" onerror="globalThis.__APP_ENV__=Object.freeze({})"></script>
+  <script type="module" src="js/app.js?v=25"></script>
+  <style>.employee-autocomplete{position:relative}.autocomplete-results{position:absolute;top:calc(100% + 6px);left:0;right:0;min-width:390px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 12px 30px rgba(25,48,64,.16);z-index:25;max-height:370px;overflow:auto;padding:5px}.autocomplete-item{width:100%;display:flex;align-items:center;gap:12px;border:0;background:#fff;padding:10px;border-radius:6px;text-align:left;cursor:pointer}.autocomplete-item:hover,.autocomplete-item.active{background:#eef7fd}.autocomplete-avatar{width:34px;height:34px;border-radius:50%;background:var(--blue-soft);color:var(--blue);display:grid;place-items:center;font-size:10px;font-weight:700;flex:0 0 auto}.autocomplete-copy{display:grid;gap:3px;min-width:0}.autocomplete-copy strong{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.autocomplete-copy small{font-size:9px;color:var(--muted)}.employee-selection .selected-grid{grid-template-columns:repeat(5,1fr)}@media(max-width:600px){.autocomplete-results{min-width:280px}.employee-selection .selected-grid{grid-template-columns:1fr}}</style>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="brand"><span class="brand-mark">NPI</span><div><strong>NPI DIGITAL</strong><small>Forms Hub</small></div></div>
+      <nav class="nav" aria-label="Menú principal">
+        <button class="nav-item active" data-view="dashboard"><span>▦</span>Dashboard</button>
+        <p class="nav-label">FORMATOS</p>
+        <button class="nav-item" data-view="material"><span>□</span>Material Delivery Record</button>
+        <button class="nav-item" data-view="change"><span>⇄</span>Model Change Record</button>
+        <button class="nav-item" data-view="generated"><span>⇩</span>Generated Files</button>
+        <p class="nav-label">DATOS</p>
+        <button class="nav-item" data-view="plan"><span>≡</span>Production Plan</button>
+        <button class="nav-item" data-view="employees"><span>♙</span>Employees</button>
+        <button class="nav-item" data-view="settings"><span>⚙</span>Settings</button>
+      </nav>
+      <div class="sidebar-footer"><span class="status-dot"></span><div><strong>Development mode</strong><small id="serviceModeLabel">Almacenamiento temporal</small></div></div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn menu-toggle" id="menuToggle" aria-label="Abrir menú">☰</button>
+        <div><h1 id="pageTitle">Dashboard</h1><p id="pageSubtitle">Resumen de formatos y actividad</p></div>
+        <div class="top-actions"><span class="sync-badge" id="syncBadge" title="Estado de sincronización">Preparando…</span><span class="today" id="today"></span><button class="avatar" title="Usuario local">OP</button></div>
+      </header>
+
+      <div class="content">
+        <section class="view active" id="dashboardView">
+          <div class="welcome panel"><div><span class="eyebrow">CONTROL DE DOCUMENTOS</span><h2>Formatos listos, datos consistentes.</h2><p>Carga el plan de producción, localiza una orden y genera documentos Excel sin capturar la misma información dos veces.</p></div><button class="btn btn-light" data-go="plan">Cargar plan de producción</button></div>
+          <div class="stats">
+            <article class="stat panel"><span class="stat-icon blue">≡</span><div><small>Registros del plan</small><strong id="planCount">0</strong><em id="planStatus">Sin archivo cargado</em></div></article>
+            <article class="stat panel"><span class="stat-icon green">✓</span><div><small>Archivos generados</small><strong id="fileCount">0</strong><em>Guardados localmente</em></div></article>
+            <article class="stat panel"><span class="stat-icon orange">♙</span><div><small>Empleados</small><strong id="employeeCount">0</strong><em id="employeeStatus">Sin archivo cargado</em></div></article>
+          </div>
+          <div class="dashboard-grid">
+            <section class="panel section-card"><div class="section-heading"><div><h3>Acciones rápidas</h3><p>Comienza un nuevo registro</p></div></div><div class="quick-grid"><button class="quick" data-go="material"><span>□</span><div><strong>Material Delivery</strong><small>Nuevo registro de entrega</small></div><b>›</b></button><button class="quick" data-go="change"><span>⇄</span><div><strong>Model Change</strong><small>Nuevo registro de cambio</small></div><b>›</b></button><button class="quick" data-go="plan"><span>↑</span><div><strong>Production Plan</strong><small>Cargar o reemplazar plan</small></div><b>›</b></button></div></section>
+            <section class="panel section-card"><div class="section-heading"><div><h3>Actividad reciente</h3><p>Últimos archivos generados</p></div><button class="link-btn" data-go="generated">Ver todos</button></div><div id="recentFiles" class="empty compact">Aún no hay archivos generados.</div></section>
+          </div>
+        </section>
+
+        <section class="view" id="planView">
+          <div class="panel section-card">
+            <div class="section-heading"><div><h2>Plan de producción</h2><p>Archivo activo administrado por el proveedor configurado.</p></div><div class="top-actions"><button class="btn btn-light" id="refreshPlan" type="button">Refresh</button><label class="btn btn-primary">Upload Production Plan<input id="planInput" type="file" accept=".xlsx,.xls" hidden></label></div></div>
+            <div class="plan-file-info"><div><small>ARCHIVO ACTIVO</small><strong id="planFileName">Consultando…</strong></div><div><small>ACTUALIZADO</small><strong id="planLoadedAt">—</strong></div><div><small>ESTADO</small><strong id="planDriveStatus">Loading</strong></div></div>
+            <div class="dropzone" id="planDrop"><span>↑</span><strong>Arrastra aquí el plan de producción</strong><small>El archivo se procesa únicamente en tu navegador.</small></div>
+          </div>
+          <section class="panel import-preview" id="productionImportPreview" hidden>
+            <div class="section-heading"><div><h3>Vista previa de importación</h3><p id="productionImportFile">Valida el archivo antes de aplicarlo.</p></div><span class="import-status" id="productionImportStatus">Validando</span></div>
+            <div class="import-counts">
+              <div><small>Filas</small><strong data-import-count="source_row_count">0</strong></div>
+              <div><small>Nuevas</small><strong data-import-count="new_count">0</strong></div>
+              <div><small>Modificadas</small><strong data-import-count="modified_count">0</strong></div>
+              <div><small>Sin cambios</small><strong data-import-count="unchanged_count">0</strong></div>
+              <div><small>Ausentes</small><strong data-import-count="absent_count">0</strong></div>
+              <div><small>Rechazadas</small><strong data-import-count="rejected_count">0</strong></div>
+              <div><small>Auxiliares</small><strong data-import-count="auxiliary_row_count">0</strong></div>
+              <div><small>Conflictos</small><strong data-import-count="blocking_conflict_count">0</strong></div>
+            </div>
+            <div id="productionImportConflicts" class="import-conflicts" hidden></div>
+            <div class="form-actions"><button class="btn btn-light" id="cancelProductionImport" type="button">Cancelar importación</button><button class="btn btn-primary" id="applyProductionImport" type="button" disabled>Aplicar versión</button></div>
+          </section>
+          <div class="panel selected-record" id="selectedProductionSummary" hidden></div>
+          <div class="panel table-card"><div class="table-toolbar plan-toolbar"><div><h3>Registros</h3><p id="planMeta">No se ha cargado un archivo</p></div><div class="plan-controls"><div class="search"><span>⌕</span><input id="planSearch" placeholder="Buscar Rolling, Order No., Material Code, modelo…" disabled></div><select id="lineFilter" disabled><option value="">Todas las líneas</option></select><select id="modelFilter" disabled><option value="">Todos los modelos</option></select><select id="destinationFilter" disabled><option value="">Todos los destinos</option></select></div></div><div class="table-wrap"><table><thead id="planHead"></thead><tbody id="planBody"><tr><td><div class="empty">Carga un plan para ver los registros.</div></td></tr></tbody></table></div></div>
+        </section>
+
+        <section class="view" id="employeesView">
+          <div class="panel section-card"><div class="section-heading"><div><h2>Base de empleados</h2><p>Archivo activo administrado por el proveedor configurado.</p></div><div class="top-actions"><button class="btn btn-light" id="refreshEmployees" type="button">Refresh</button><label class="btn btn-primary">Upload Employee Database<input id="employeeInput" type="file" accept=".xlsx,.xls" hidden></label></div></div><div class="plan-file-info"><div><small>ARCHIVO ACTIVO</small><strong id="employeeFileName">Consultando…</strong></div><div><small>ACTUALIZADO</small><strong id="employeeLoadedAt">—</strong></div><div><small>ESTADO</small><strong id="employeeDriveStatus">Loading</strong></div></div></div>
+          <div class="panel selected-record employee-selection" id="selectedEmployeeSummary" hidden></div>
+          <div class="panel table-card"><div class="table-toolbar plan-toolbar"><div><h3>Empleados</h3><p id="employeeMeta">No se ha cargado un archivo</p></div><div class="plan-controls"><div class="search employee-autocomplete"><span>⌕</span><input id="employeeSearch" placeholder="Buscar número o nombre…" autocomplete="off" disabled><div class="autocomplete-results" id="employeeAutocompleteResults" hidden></div></div><select id="shiftFilter" disabled><option value="">Todos los turnos</option></select><select id="employeeLineFilter" disabled><option value="">Todas las líneas</option></select><select id="areaFilter" disabled><option value="">Todas las áreas</option></select></div></div><div class="table-wrap"><table><thead id="employeeHead"></thead><tbody id="employeeBody"><tr><td><div class="empty">Carga la base para ver los empleados.</div></td></tr></tbody></table></div></div>
+        </section>
+
+        <section class="view" id="materialView"></section>
+        <section class="view" id="changeView"></section>
+
+        <section class="view" id="generatedView">
+          <div class="panel table-card"><div class="table-toolbar"><div><h2>Archivos generados</h2><p>Historial obtenido del proveedor configurado</p></div><button class="btn btn-light" id="refreshHistory">Actualizar historial</button></div><div id="historyList" class="history-list"><div class="empty">Aún no hay archivos generados.</div></div></div>
+        </section>
+
+        <section class="view" id="settingsView">
+          <div class="panel section-card settings-card"><div class="section-heading"><div><h2>Configuración</h2><p>Preferencias y proveedor de almacenamiento</p></div></div><form id="settingsForm"><label>Nombre de planta<input name="plant" placeholder="Manufacturing Plant"></label><label>Área predeterminada<input name="area" placeholder="Production"></label><label>Prefijo de archivos<input name="prefix" placeholder="MFG"></label><label>Modo de servicio<select name="serviceMode"><option value="local">Development mode</option><option value="google">Google Drive / Apps Script</option></select></label><div class="connection-box"><div><strong>Conexión con Google</strong><small>La URL se utilizará cuando Apps Script esté disponible.</small></div><label>Apps Script API URL<input name="apiUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec"></label><div class="connection-status"><span class="status-dot neutral" id="connectionDot"></span><span>Connection status: <strong id="connectionStatus">Not configured</strong></span></div><button class="btn btn-light" id="testConnection" type="button">Test connection</button></div><div class="connection-box"><div><strong>Supabase Auth</strong><small>La contraseña sólo se envía a Supabase y nunca se guarda en preferencias.</small></div><label>Correo<input id="supabaseEmail" type="email" autocomplete="username"></label><label>Contraseña<input id="supabasePassword" type="password" autocomplete="current-password"></label><div class="connection-status"><span class="status-dot neutral" id="supabaseDot"></span><span>Estado: <strong id="supabaseStatus">No configurado</strong></span></div><div class="top-actions"><button class="btn btn-light" id="supabaseSignIn" type="button">Iniciar sesión</button><button class="btn btn-light" id="supabaseSignOut" type="button">Cerrar sesión</button></div></div><button class="btn btn-primary" type="submit">Guardar configuración</button></form></div>
+        </section>
+      </div>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+</body>
+</html>
