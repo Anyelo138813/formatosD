@@ -1,5 +1,5 @@
-const CACHE='npi-forms-v23';
-const APP_SHELL=['./','./index.html','./css/styles.css?v=17','./js/app.js?v=25','./js/database.js?v=25','./js/excel-reader.js','./js/form-generator.js?v=24','./js/model-change-mapping.js','./js/npi-employees.js','./js/vendor/xlsx.full.min.js','./js/vendor/exceljs.min.js','./js/vendor/supabase-js-2.110.7.umd.js','./data/production-plan.xlsx','./data/employees.xlsx','./data/npi-employees.xlsx?v=13','./templates/New_Model_Material_Delivery_Record_Corporate.xlsx','./templates/Model Change Format_Rev.06 Loss Time Record.xlsx','./manifest.webmanifest'];
+const CACHE='npi-forms-v36';
+const APP_SHELL=['./','./index.html','./css/styles.css?v=23','./js/app.js?v=36','./js/database.js?v=31','./js/excel-reader.js','./js/form-generator.js?v=29','./js/npi-employees.js','./js/vendor/xlsx.full.min.js','./js/vendor/exceljs.min.js','./js/vendor/supabase-js-2.110.7.umd.js','./data/production-plan.xlsx','./data/employees.xlsx','./data/npi-employees.xlsx?v=13','./templates/New_Model_Material_Delivery_Record_Corporate.xlsx','./manifest.webmanifest'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
