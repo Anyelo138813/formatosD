@@ -31,6 +31,7 @@ export class LocalDataService{
   async uploadTemplate(file,type){await storePut('records',`template:${type}:${TEMPLATE_CACHE_VERSION[type]}`,file);return{ok:true,name:file.name,type}}
   async saveGeneratedFile(file,metadata){const records=await this.getGeneratedFiles(),record={id:crypto.randomUUID(),name:file.name,date:new Date().toISOString(),...compactSignatureMetadata(metadata),file,pendingSync:false};records.unshift(record);await storePut('records','generated',records);return record}
   async getGeneratedFiles(){return(await storeGet('records','generated'))||[]}
+  async deleteGeneratedFile(item){const id=typeof item==='string'?item:item?.id,records=await this.getGeneratedFiles(),remaining=records.filter(record=>record.id!==id);if(!id||remaining.length===records.length)throw new Error('No se encontró el archivo que deseas eliminar.');await storePut('records','generated',remaining);return{ok:true,id}}
   async getConfiguration(){return preferences.get()}
   async saveConfiguration(value){preferences.save(value);return value}
   async testConnection(){return{ok:true,message:'Almacenamiento local listo'}}
@@ -148,6 +149,20 @@ export class SupabaseDataService{
     const result=await this.client.storage.from(item.storageBucket).download(item.storagePath);
     if(result.error)throw result.error;
     return new File([result.data],item.name,{type:result.data.type||excelType});
+  }
+  async deleteGeneratedFile(item){
+    if(item?.type!=='material')return this.fallback.deleteGeneratedFile(item);
+    const auth=await this.getAuthState();
+    if(auth.role!=='admin')throw new Error('Solo un administrador puede eliminar archivos de Supabase.');
+    const plantId=await this.getPlantId(),files=await this.client.from('material_delivery_files').select('storage_bucket,storage_path').eq('plant_id',plantId).eq('report_id',item.id);
+    if(files.error)throw files.error;
+    const buckets=new Map();
+    for(const file of files.data||[]){if(!file.storage_bucket||!file.storage_path)continue;if(!buckets.has(file.storage_bucket))buckets.set(file.storage_bucket,[]);buckets.get(file.storage_bucket).push(file.storage_path)}
+    const deleted=await this.client.from('material_delivery_reports').delete().eq('plant_id',plantId).eq('id',item.id).select('id').maybeSingle();
+    if(deleted.error)throw deleted.error;
+    if(!deleted.data)throw new Error('No se eliminó el reporte. Verifica que tu cuenta tenga permiso de administrador.');
+    for(const[bucket,paths]of buckets)for(let index=0;index<paths.length;index+=1000){const removed=await this.client.storage.from(bucket).remove(paths.slice(index,index+1000));if(removed.error)throw new Error(`El reporte se eliminó, pero no fue posible limpiar un archivo del almacenamiento: ${removed.error.message}`)}
+    return{ok:true,id:item.id};
   }
   async saveGeneratedFile(file,metadata){if(metadata?.type==='material')return this.saveMaterialDeliveryReport(file,metadata);return this.fallback.saveGeneratedFile(file,metadata)}
   async getGeneratedFiles(){const [reports,local]=await Promise.all([this.getMaterialDeliveryReports(),this.fallback.getGeneratedFiles()]);return[...reports,...local.filter(item=>item.type!=='material')].sort((a,b)=>String(b.date).localeCompare(String(a.date)))}
