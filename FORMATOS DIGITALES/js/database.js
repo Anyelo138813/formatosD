@@ -3,7 +3,7 @@ const DEFAULTS={plant:'',area:'',prefix:'MFG',apiUrl:'',serviceMode:'local'};
 const bundled={productionPlan:'data/production-plan.xlsx',employees:'data/employees.xlsx',templates:{material:'templates/New_Model_Material_Delivery_Record_Corporate.xlsx',change:'templates/Model Change Format_Rev.06 Loss Time Record.xlsx'}};
 const excelType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const DB_NAME='npi_digital_forms_v1',DB_VERSION=1;
-const TEMPLATE_CACHE_VERSION={material:'rev5-unified-styled',change:'rev6'};
+const TEMPLATE_CACHE_VERSION={material:'rev7-final-no-example-signature',change:'rev6'};
 
 function openDatabase(){return new Promise((resolve,reject)=>{const request=indexedDB.open(DB_NAME,DB_VERSION);request.onupgradeneeded=()=>{const db=request.result;for(const name of['records','queue'])if(!db.objectStoreNames.contains(name))db.createObjectStore(name,{keyPath:'id'})};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)})}
 async function storeGet(store,id){const db=await openDatabase();return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readonly'),request=tx.objectStore(store).get(id);request.onsuccess=()=>resolve(request.result?.value);request.onerror=()=>reject(request.error)})}
@@ -85,6 +85,24 @@ export class SupabaseDataService{
   async requireSession(){const session=await this.session();if(!session)throw new Error('Supabase está configurado, pero no hay una sesión iniciada.');return session}
   async signIn(email,password){if(!this.client)throw new Error('Configura SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY.');const result=await this.client.auth.signInWithPassword({email:String(email||'').trim(),password:String(password||'')});if(result.error)throw result.error;return result.data}
   async signOut(){if(!this.client)return;const result=await this.client.auth.signOut();if(result.error)throw result.error}
+  onAuthStateChange(callback){
+    if(!this.client)return{unsubscribe(){}};
+    const{data}=this.client.auth.onAuthStateChange((event,session)=>callback?.(event,session));
+    return data.subscription;
+  }
+  async subscribeToProductionPlanChanges(callback){
+    if(!this.client||!(await this.session()))return null;
+    const plantId=await this.getPlantId();
+    const channel=this.client
+      .channel(`production-plan-${plantId}-${crypto.randomUUID()}`)
+      .on('postgres_changes',{event:'UPDATE',schema:'public',table:'source_file_versions',filter:`plant_id=eq.${plantId}`},payload=>{
+        const version=payload.new;
+        if(version?.resource_type==='production_plan'&&version?.is_active===true)callback?.(version);
+      })
+      .subscribe();
+    let removed=false;
+    return{unsubscribe:()=>{if(removed)return Promise.resolve('ok');removed=true;return this.client.removeChannel(channel)}};
+  }
   async getAuthState(){const session=await this.session();if(!session)return{configured:this.isConfigured(),authenticated:false,email:'',plantId:'',plantCode:'',role:''};const profile=await this.client.from('profiles').select('default_plant_id').eq('id',session.user.id).maybeSingle();if(profile.error)throw profile.error;let plantCode='',role='';if(profile.data?.default_plant_id){const[plant,membership]=await Promise.all([this.client.from('plants').select('code').eq('id',profile.data.default_plant_id).maybeSingle(),this.client.from('plant_members').select('role,is_active').eq('plant_id',profile.data.default_plant_id).eq('user_id',session.user.id).maybeSingle()]);if(plant.error)throw plant.error;if(membership.error)throw membership.error;plantCode=plant.data?.code||'';role=membership.data?.is_active?membership.data.role:''}return{configured:true,authenticated:true,email:session.user.email||'',plantId:profile.data?.default_plant_id||'',plantCode,role}}
   async saveMaterialDeliveryReport(file,metadata={}){
     if(metadata.reportId)return this.saveMaterialDeliveryReportVersion(metadata.reportId,file,metadata);
@@ -186,7 +204,7 @@ export class SupabaseDataService{
       const result=await this.client.from('employees').insert(payload).select('*,employee_skills(*)').single();
       if(result.error)throw result.error;
       return employeeToApp(result.data);
-    }catch(error){if(!queueOnFailure)throw error;return this.cacheOptimistic(employee,'create')}
+    }catch(error){if(!queueOnFailure||navigator.onLine)throw error;return this.cacheOptimistic(employee,'create')}
   }
   async updateEmployee(id,changes,{queueOnFailure=true}={}){
     if(!id)throw new Error('El identificador del empleado es obligatorio.');
