@@ -1,5 +1,5 @@
-const CACHE='npi-forms-v39';
-const APP_SHELL=['./','./index.html','./css/styles.css?v=24','./js/app.js?v=39','./js/database.js?v=32','./js/excel-reader.js','./js/form-generator.js?v=29','./js/npi-employees.js','./js/vendor/xlsx.full.min.js','./js/vendor/exceljs.min.js','./js/vendor/supabase-js-2.110.7.umd.js','./js/vendor/zxing-browser-0.2.0.min.js','./data/production-plan.xlsx','./data/employees.xlsx','./data/npi-employees.xlsx?v=13','./templates/New_Model_Material_Delivery_Record_Corporate.xlsx','./manifest.webmanifest'];
+const CACHE='npi-forms-v40';
+const APP_SHELL=['./','./index.html','./css/styles.css?v=24','./js/app.js?v=39','./js/database.js?v=32','./js/excel-reader.js','./js/form-generator.js?v=30','./js/npi-employees.js','./js/vendor/xlsx.full.min.js','./js/vendor/exceljs.min.js','./js/vendor/supabase-js-2.110.7.umd.js','./js/vendor/zxing-browser-0.2.0.min.js','./data/production-plan.xlsx','./data/employees.xlsx','./data/npi-employees.xlsx?v=13','./templates/New_Model_Material_Delivery_Record_Corporate.xlsx','./manifest.webmanifest'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',event=>{
