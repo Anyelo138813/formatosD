@@ -1,0 +1,5 @@
+.env
+env.js
+supabase/.temp/
+.vercel/
+dist/
