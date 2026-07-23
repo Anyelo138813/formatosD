@@ -32,6 +32,18 @@ const FORM_CONFIG={
 
 export function getFormConfig(type){return FORM_CONFIG[type]}
 
+function generatedFileName(type,values){
+  if(type==='material'){
+    const date=/^\d{4}-\d{2}-\d{2}$/.test(values.date||'')
+      ?values.date
+      :new Date().toLocaleDateString('en-CA');
+    return`NMMDR_${date}.xlsx`;
+  }
+  const prefix=(values.prefix||'MFG').replace(/[^a-z0-9_-]/gi,'');
+  const suffix=(values.order||values.rolling||Date.now()).toString().replace(/[^a-z0-9_-]/gi,'-');
+  return`${prefix}_Model_Change_${suffix}.xlsx`;
+}
+
 function parsePayload(value){
   if(value&&typeof value==='object'&&value.kind)return value;
   try{return JSON.parse(value)}catch{return null}
@@ -80,14 +92,14 @@ export async function generateExcel(type,values,sourceBuffer){
       const payload=parsePayload(values[field]);if(payload?.kind!=='evidence'||!payload.dataUrl)continue;
       const imageId=workbook.addImage({base64:await evidenceForRange(sheet,range,payload),extension:'jpeg'});sheet.addImage(imageId,range);
     }
-    const bytes=await workbook.xlsx.writeBuffer(),prefix=(values.prefix||'MFG').replace(/[^a-z0-9_-]/gi,''),suffix=(values.order||values.rolling||Date.now()).toString().replace(/[^a-z0-9_-]/gi,'-'),fileName=`${prefix}_${type==='material'?'Material_Delivery':'Model_Change'}_${suffix}.xlsx`;return new File([bytes],fileName,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
+    const bytes=await workbook.xlsx.writeBuffer(),fileName=generatedFileName(type,values);return new File([bytes],fileName,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})
   }
   if(Object.keys(FORM_CONFIG[type].images||{}).some(field=>parsePayload(values[field])?.dataUrl))throw new Error('El generador de imágenes para Excel no está disponible.');
   if(!window.XLSX)throw new Error('El generador de Excel no está disponible.');
   const workbook=XLSX.read(buffer,{type:'array',cellStyles:true,cellDates:true}),sheet=workbook.Sheets[workbook.SheetNames[0]];
   for(const target of Object.values(FORM_CONFIG[type].cells)){for(const address of(Array.isArray(target)?target:[target]))if(sheet[address])sheet[address].v=''}
   Object.entries(FORM_CONFIG[type].cells).forEach(([field,target])=>{if(values[field]===undefined||values[field]==='')return;const addresses=Array.isArray(target)?target:[target],value=field.toLowerCase().endsWith('selected')?'X':String(values[field]);addresses.forEach(address=>{sheet[address]={...(sheet[address]||{}),t:'s',v:value}})});
-  const prefix=(values.prefix||'MFG').replace(/[^a-z0-9_-]/gi,''),suffix=(values.order||values.rolling||Date.now()).toString().replace(/[^a-z0-9_-]/gi,'-'),fileName=`${prefix}_${type==='material'?'Material_Delivery':'Model_Change'}_${suffix}.xlsx`,bytes=XLSX.write(workbook,{type:'array',cellStyles:true,bookType:'xlsx'});
+  const fileName=generatedFileName(type,values),bytes=XLSX.write(workbook,{type:'array',cellStyles:true,bookType:'xlsx'});
   return new File([bytes],fileName,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }
 
