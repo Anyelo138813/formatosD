@@ -5,14 +5,14 @@ export const MATERIAL_ROWS={
 
 function materialCells(){
   const cells={internalModel:'B3',customerModel:'D3',rolling:'F3',line:'B4',date:'D4',materialType:'F4'};
-  for(const[key,,row]of MATERIAL_ROWS.efm)Object.assign(cells,{[`efm_${key}_selected`]:`B${row}`,[`efm_${key}_qty`]:`C${row}`});
-  for(const[key,,row]of MATERIAL_ROWS.pfa)Object.assign(cells,{[`pfa_${key}_selected`]:`B${row}`});
+  for(const[key,,row]of MATERIAL_ROWS.efm)cells[`efm_${key}_qty`]=`B${row}`;
+  for(const[key,,row]of MATERIAL_ROWS.pfa)cells[`pfa_${key}_qty`]=`B${row}`;
   Object.assign(cells,{
-    efmDeliveryDate:'E8',efmReturnDate:'E9',
+    efmDeliveryDate:'D8',efmReturnDate:'D9',
     efmNpiSignature:'A14',efmDeliveryEfmSignature:'C14',efmReturnEfmSignature:'E14',
-    pfaDeliveryDate:'C18',pfaSerialNumber:'C21',pfaQty:'D21',
+    pfaDeliveryDate:'C18',pfaSerialNumber:'C21',
     pfaNpiSignature:'A24',pfaSignature:'D24',
-    qmSelected:'B29',qmSerialNumber:'C29',qmQty:'E28',qmDeliveryDate:'B30',
+    qmSerialNumber:'C29',qmQty:'B29',qmDeliveryDate:'B30',
     qmNpiSignature:'A32',qmSignature:'D32'
   });
   return cells;
@@ -24,7 +24,7 @@ const FORM_CONFIG={
     name:'New Model Material Delivery Record',
     sheetFallback:'Sheet1',
     cells:materialCells(),
-    images:{efmEvidence:'D11:F12',pfaEvidence:'E18:F22',qmEvidence:'E29:F30'},
+    images:{efmEvidence:'C11:D12',efmReturnEvidence:'E11:F12',pfaEvidence:'E18:F22',qmEvidence:'D29:F30'},
     signatures:{efmNpiSignature:'A14:B14',efmDeliveryEfmSignature:'C14:D14',efmReturnEfmSignature:'E14:F14',pfaNpiSignature:'A24:C24',pfaSignature:'D24:F24',qmNpiSignature:'A32:C32',qmSignature:'D32:F32'}
   },
   change:{template:'templates/Model Change Format_Rev.06 Loss Time Record.xlsx',name:'Model Change Format Rev.06 Loss Time Record',sheetFallback:'Sheet1',cells:{rolling:'B4',order:'D4',material:'B6',internalModel:'D6',customerModel:'F6',date:'B8',shift:'D8',employee:'F8',lossTime:'B10',reason:'D10',notes:'B12'}}
@@ -32,12 +32,24 @@ const FORM_CONFIG={
 
 export function getFormConfig(type){return FORM_CONFIG[type]}
 
+function safeMaterialValue(value){return String(value||'').trim().replace(/[^a-z0-9._()-]+/gi,'-').replace(/^-+|-+$/g,'')}
+
+export function buildMaterialDocumentIdentity(values={}){
+  const identity=[values.internalModel,values.customerModel,values.rolling||values.order||values.orderNo,values.materialType].map(safeMaterialValue).filter(Boolean).join('-');
+  return identity||'MODELO-INTERNO-MODELO-CLIENTE-ROLLING-TYPE';
+}
+
+export function resolveMaterialReturnValue(values={}){
+  const status=String(values.efmReturnStatus||'').trim().toLowerCase();
+  const date=String(values.efmReturnDate||'').trim();
+  if(status==='pending'||!date)return'Pendiente';
+  return date;
+}
+
 function generatedFileName(type,values){
   if(type==='material'){
-    const date=/^\d{4}-\d{2}-\d{2}$/.test(values.date||'')
-      ?values.date
-      :new Date().toLocaleDateString('en-CA');
-    return`NMMDR_${date}.xlsx`;
+    const identity=buildMaterialDocumentIdentity(values);
+    return`${identity}.xlsx`;
   }
   const prefix=(values.prefix||'MFG').replace(/[^a-z0-9_-]/gi,'');
   const suffix=(values.order||values.rolling||Date.now()).toString().replace(/[^a-z0-9_-]/gi,'-');
@@ -85,7 +97,10 @@ export async function generateExcel(type,values,sourceBuffer){
         if(payload?.kind==='signature'){
           cell.value=[payload.employeeNumber,payload.fullName].filter(Boolean).join(' · ');cell.note=`Firma digital | ${payload.department} | ${payload.signedAt} | ${payload.method}`;cell.alignment={...cell.alignment,horizontal:'center',vertical:'bottom',wrapText:true};
           if(payload.dataUrl){const imageId=workbook.addImage({base64:payload.dataUrl,extension:'png'}),match=address.match(/^([A-Z]+)(\d+)$/),box=rangeSize(sheet,config.signatures?.[field]||address,0,0),height=Math.min(70,box.height*.72),width=Math.min(box.width*.84,height*(700/220));let column=0;for(const char of match[1])column=column*26+char.charCodeAt(0)-64;const firstColumnWidth=(sheet.getColumn(column).width||8.43)*7,columnOffset=Math.max(.04,(box.width-width)/2/firstColumnWidth);sheet.addImage(imageId,{tl:{col:column-1+columnOffset,row:Number(match[2])-1+.02},ext:{width,height},editAs:'oneCell'})}
-        }else cell.value=field.toLowerCase().endsWith('selected')?'X':String(values[field]);
+        }else{
+          const rawValue=field==='efmReturnDate'?resolveMaterialReturnValue(values):values[field];
+          cell.value=field.toLowerCase().endsWith('selected')?'X':String(rawValue);
+        }
       }
     }
     for(const[field,range]of Object.entries(config.images||{})){
@@ -98,7 +113,7 @@ export async function generateExcel(type,values,sourceBuffer){
   if(!window.XLSX)throw new Error('El generador de Excel no está disponible.');
   const workbook=XLSX.read(buffer,{type:'array',cellStyles:true,cellDates:true}),sheet=workbook.Sheets[workbook.SheetNames[0]];
   for(const target of Object.values(FORM_CONFIG[type].cells)){for(const address of(Array.isArray(target)?target:[target]))if(sheet[address])sheet[address].v=''}
-  Object.entries(FORM_CONFIG[type].cells).forEach(([field,target])=>{if(values[field]===undefined||values[field]==='')return;const addresses=Array.isArray(target)?target:[target],value=field.toLowerCase().endsWith('selected')?'X':String(values[field]);addresses.forEach(address=>{sheet[address]={...(sheet[address]||{}),t:'s',v:value}})});
+  Object.entries(FORM_CONFIG[type].cells).forEach(([field,target])=>{if(values[field]===undefined||values[field]==='')return;const addresses=Array.isArray(target)?target:[target],rawValue=field==='efmReturnDate'?resolveMaterialReturnValue(values):values[field],value=field.toLowerCase().endsWith('selected')?'X':String(rawValue);addresses.forEach(address=>{sheet[address]={...(sheet[address]||{}),t:'s',v:value}})});
   const fileName=generatedFileName(type,values),bytes=XLSX.write(workbook,{type:'array',cellStyles:true,bookType:'xlsx'});
   return new File([bytes],fileName,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
 }

@@ -3,7 +3,11 @@ const DEFAULTS={plant:'',area:'',prefix:'MFG',apiUrl:'',serviceMode:'local'};
 const bundled={productionPlan:'data/production-plan.xlsx',employees:'data/employees.xlsx',templates:{material:'templates/New_Model_Material_Delivery_Record_Corporate.xlsx',change:'templates/Model Change Format_Rev.06 Loss Time Record.xlsx'}};
 const excelType='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 const DB_NAME='npi_digital_forms_v1',DB_VERSION=1;
-const TEMPLATE_CACHE_VERSION={material:'rev7-final-no-example-signature',change:'rev6'};
+const TEMPLATE_CACHE_VERSION={material:'rev8-efm-return-evidence',change:'rev6'};
+
+function materialReportStatus(values={}){
+  return /^\d{4}-\d{2}-\d{2}$/.test(String(values.efmReturnDate||'').trim())?'completed':'draft';
+}
 
 function openDatabase(){return new Promise((resolve,reject)=>{const request=indexedDB.open(DB_NAME,DB_VERSION);request.onupgradeneeded=()=>{const db=request.result;for(const name of['records','queue'])if(!db.objectStoreNames.contains(name))db.createObjectStore(name,{keyPath:'id'})};request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error)})}
 async function storeGet(store,id){const db=await openDatabase();return new Promise((resolve,reject)=>{const tx=db.transaction(store,'readonly'),request=tx.objectStore(store).get(id);request.onsuccess=()=>resolve(request.result?.value);request.onerror=()=>reject(request.error)})}
@@ -109,7 +113,7 @@ export class SupabaseDataService{
     if(metadata.reportId)return this.saveMaterialDeliveryReportVersion(metadata.reportId,file,metadata);
     const session=await this.requireSession(),plantId=await this.getPlantId(),values=metadata.values||{};
     const reportNumber=`MDR-${new Date().toISOString().replace(/\D/g,'').slice(0,14)}-${crypto.randomUUID().slice(0,6).toUpperCase()}`;
-    const reportPayload={plant_id:plantId,report_number:reportNumber,status:'completed',rolling:values.rolling||null,internal_model:values.internalModel||null,customer_model:values.customerModel||null,line:values.line||null,trial_date:values.date||null,current_version:1,form_data:values,created_by:session.user.id,updated_by:session.user.id};
+    const reportPayload={plant_id:plantId,report_number:reportNumber,status:materialReportStatus(values),rolling:values.rolling||null,internal_model:values.internalModel||null,customer_model:values.customerModel||null,line:values.line||null,trial_date:values.date||null,current_version:1,form_data:values,created_by:session.user.id,updated_by:session.user.id};
     const created=await this.client.from('material_delivery_reports').insert(reportPayload).select('*').single();
     if(created.error)throw created.error;
     const report=created.data,safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_'),storagePath=`${plantId}/material-delivery/${report.id}/v1/${safeName}`;
@@ -120,19 +124,19 @@ export class SupabaseDataService{
       if(upload.error)throw upload.error;
       const savedFile=await this.client.from('material_delivery_files').insert({plant_id:plantId,report_id:report.id,report_version:1,file_kind:'xlsx',storage_bucket:'report-files',storage_path:storagePath,original_name:file.name,mime_type:file.type||excelType,size_bytes:file.size,created_by:session.user.id,updated_by:session.user.id}).select('*').single();
       if(savedFile.error)throw savedFile.error;
-      return{id:report.id,name:file.name,date:report.created_at,type:'material',order:report.rolling||'',reportNumber,status:report.status,version:1,storageBucket:'report-files',storagePath};
+      return{id:report.id,name:file.name,date:report.created_at,type:'material',order:report.rolling||'',reportNumber,status:report.status,version:1,values,internalModel:report.internal_model||'',customerModel:report.customer_model||'',storageBucket:'report-files',storagePath};
     }catch(error){await this.client.from('material_delivery_reports').update({status:'draft',updated_by:session.user.id}).eq('id',report.id);throw error}
   }
   async saveMaterialDeliveryReportVersion(reportId,file,metadata={}){
     const session=await this.requireSession(),plantId=await this.getPlantId(),values=metadata.values||{};
-    const saved=await this.client.rpc('save_material_delivery_version',{target_report_id:reportId,target_form_data:values,target_status:'completed',target_change_summary:metadata.changeSummary||'ActualizaciÃ³n desde el formulario'});
+    const saved=await this.client.rpc('save_material_delivery_version',{target_report_id:reportId,target_form_data:values,target_status:materialReportStatus(values),target_change_summary:metadata.changeSummary||'ActualizaciÃ³n desde el formulario'});
     if(saved.error)throw saved.error;
     const report=Array.isArray(saved.data)?saved.data[0]:saved.data,version=Number(report.version),safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,'_'),storagePath=`${plantId}/material-delivery/${reportId}/v${version}/${safeName}`;
     const upload=await this.client.storage.from('report-files').upload(storagePath,file,{contentType:file.type||excelType,upsert:false});
     if(upload.error)throw upload.error;
     const savedFile=await this.client.from('material_delivery_files').insert({plant_id:plantId,report_id:reportId,report_version:version,file_kind:'xlsx',storage_bucket:'report-files',storage_path:storagePath,original_name:file.name,mime_type:file.type||excelType,size_bytes:file.size,created_by:session.user.id,updated_by:session.user.id}).select('*').single();
     if(savedFile.error)throw savedFile.error;
-    return{id:reportId,name:file.name,date:report.updated_at,type:'material',order:values.rolling||'',reportNumber:report.report_number,status:report.status,version,values,storageBucket:'report-files',storagePath};
+    return{id:reportId,name:file.name,date:report.updated_at,type:'material',order:values.rolling||'',reportNumber:report.report_number,status:report.status,version,values,internalModel:values.internalModel||'',customerModel:values.customerModel||'',storageBucket:'report-files',storagePath};
   }
   async getMaterialDeliveryReports(){
     if(!this.client||!(await this.session()))return[];
